@@ -18,7 +18,7 @@ rk.breakpoints({
 Do something every time we hit the "bp-md" breakpoint: 
 
 ```javascript
-$(document).on('bphit', function(e, bp) {
+$(window).on('bphit', function(e, bp) {
   if (bp.name == 'bp-md') {
     // Do something...
   }
@@ -28,7 +28,7 @@ $(document).on('bphit', function(e, bp) {
 Do something every time we hit the "bp-md" breakpoint and only when resizing up:
 
 ```javascript
-$(document).on('bphit', function(e, bp) {
+$(window).on('bphit', function(e, bp) {
   if (bp.name == 'bp-md' && bp.minWidth) {
     // Do something...
   }

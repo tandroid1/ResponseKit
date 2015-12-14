@@ -91,7 +91,7 @@
           range[1] = bps[iHigh - 1];
         }
 
-        $(document).trigger('bphit', getBpData(iLow, 'low'));
+        $win.trigger('bphit', getBpData(iLow, false));
 
       } else if (directionHit == 'high') {
         iLow = bps.indexOf(range[0]);
@@ -108,18 +108,23 @@
         } else {
           range[0] = bps[iLow + 1];
         }
-        $(document).trigger('bphit', getBpData(iHigh, 'high'));
+        $win.trigger('bphit', getBpData(iHigh, true));
       }
     }
 
-    function getBpData(index) {
-      if ('low') {
-        bpData[index].gt = false;
-        bpData[index].gte = false;
-      } else {
+    function getBpData(index, isHigh) {
+      if (isHigh) {
         bpData[index].lt = true;
         bpData[index].lte = true;
+        bpData[index].maxWidth = false;
+        bpData[index].minWidth = true;
+      } else {
+        bpData[index].gt = false;
+        bpData[index].gte = false;
+        bpData[index].maxWidth = true;
+        bpData[index].minWidth = false;
       }
+
 
       return bpData[index];
     }
@@ -165,18 +170,20 @@
       isFullyVisible = isFullyVisible || false;
       $el = $.isPlainObject(el) ? el : $(el);
       $el = $el.first();
-      elTop = $el.offset().top;
-      elHeight = $el.outerHeight();
-      winTop = $win.scrollTop();
-      winHeight = $win.height();
-      winBottom = winTop + winHeight;
-      elBottom = elTop + elHeight;
 
+      if ($el.length > 0) {
+        elTop = $el.offset().top;
+        elHeight = $el.outerHeight();
+        winTop = $win.scrollTop();
+        winHeight = $win.height();
+        winBottom = winTop + winHeight;
+        elBottom = elTop + elHeight;
 
-      if (isFullyVisible) {
-        return winBottom > elBottom && winTop < elTop;
-      } else {
-        return winBottom > elTop && winTop < elBottom;
+        if (isFullyVisible) {
+          return winBottom > elBottom && winTop < elTop;
+        } else {
+          return winBottom > elTop && winTop < elBottom;
+        }
       }
     };
   })($, rk, $win);
