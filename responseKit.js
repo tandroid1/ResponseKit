@@ -8,10 +8,10 @@
   // Breakpoints
   //===============================================
 
-  (function($, rk, $win){
+  (function($, rk, $win) {
     var $base,
       bps = [],
-      bpData = [],
+      bpValues = [],
       range = [];
 
     rk.breakpoints = function(breakpoints) {
@@ -22,139 +22,194 @@
         throw new Error('breakpoints object is required');
       } else {
         if (!initialized) {
-          init(breakpoints);
+          _init(breakpoints);
         }
       }
     };
 
-    function init(breakpoints) {
+
+    function _init(breakpoints) {
       var i = 0;
       $.each(breakpoints, function(key, val) {
         var data = {
           name: key,
-          w: val, // width
-          gt: isGreaterThan(val),
-          lt: isLessThan(val),
-          gte: isGreaterThanEqual(val),
-          lte: isLessThanEqual(val)
+          width: val
         };
 
-        bps[i] = val;
-        bpData[i] = data;
+        bps[i] = data;
+        bpValues[i] = val;
         i++;
       });
 
       // sort arrays by width
-      bps.sort(function(a, b) {
+      bpValues.sort(function(a, b) {
         return a - b;
       });
 
-      bpData.sort(function(a, b) {
+      bps.sort(function(a, b) {
         return a.w - b.w;
       });
 
-      setRange($win.width());
+      bpValues.push(9999);
 
-      handleResize();
+      bps.push({
+        name: 'rk-max-width',
+        width: 9999
+      });
+
+      _setRange($win.width());
+      _handleResize();
     }
 
-    function handleResize() {
+
+    function _handleResize() {
       $win.resize(function() {
         var w = $win.width();
 
         if (w <= range[0] ) {
-          updateRanges('low');
+          _shiftRanges('down');
         }
 
         if (w > range[1]) {
-          updateRanges('high');
+          _shiftRanges('up');
         }
       });
     }
 
-    function updateRanges(directionHit) {
-      var iLow, iHigh;
+    function _shiftRanges(keyword) {
+      var newBp, oldBp;
+      var iHigh = bpValues.indexOf(range[1]);
+      var iLow = bpValues.indexOf(range[0]);
 
-      if (directionHit == 'low') {
-        iLow = bps.indexOf(range[0]);
-        iHigh = bps.indexOf(range[1]);
+      iHigh = iHigh > -1 ? iHigh : bpValues.length;
 
-        if (iLow === 0 || iLow === -1) {
-          range[0] = 1
-        } else {
-          range[0] = bps[iLow - 1];
-        }
+      if (keyword == 'down') {
+        range[0] = bpValues[--iLow];
+        range[1] = bpValues[--iHigh];
 
-        if (iHigh === -1) {
-          range[1] = bps[bps.length - 1];
-        } else {
-          range[1] = bps[iHigh - 1];
-        }
+        newBp = _getBpName(range[0]);
+        oldBp = _getBpName(range[1]);
+      } else if (keyword == 'up') {
+        range[0] = bpValues[++iLow];
+        range[1] = bpValues[++iHigh];
 
-        $win.trigger('bphit', getBpData(iLow, false));
-
-      } else if (directionHit == 'high') {
-        iLow = bps.indexOf(range[0]);
-        iHigh = bps.indexOf(range[1]);
-
-        if (iHigh === bps.length - 1 || iHigh === -1) {
-          range[1] = 9999;
-        } else {
-          range[1] = bps[iHigh + 1];
-        }
-
-        if (iLow === -1) {
-          range[0] = bps[0];
-        } else {
-          range[0] = bps[iLow + 1];
-        }
-        $win.trigger('bphit', getBpData(iHigh, true));
-      }
-    }
-
-    function getBpData(index, isHigh) {
-      if (isHigh) {
-        bpData[index].lt = true;
-        bpData[index].lte = true;
-        bpData[index].maxWidth = false;
-        bpData[index].minWidth = true;
-      } else {
-        bpData[index].gt = false;
-        bpData[index].gte = false;
-        bpData[index].maxWidth = true;
-        bpData[index].minWidth = false;
+        newBp = _getBpName(range[1]);
+        oldBp = _getBpName(range[0]);
       }
 
-
-      return bpData[index];
+      $win.trigger('changed.rk.mediaquery', [newBp, oldBp]);
     }
 
-    function isGreaterThan(bp) {
-      return bp < $win.width();
-    }
+    function _getBpWidth(name) {
+      var width = -1;
 
-    function isLessThan(bp) {
-      return bp > $win.width();
-    }
-
-    function isGreaterThanEqual(bp) {
-      return bp <= $win.width();
-    }
-
-    function isLessThanEqual(bp) {
-      return bp >= $win.width();
-    }
-
-    function setRange(w) {
       $.each(bps, function(i, val) {
-        var top = bps[i + 1] || 9999;
-        if (w > bps[i] && w < top) {
-          range = [bps[i], top];
+        if (val.name == name) {
+          width = val.width;
+        }
+      });
+
+      return width;
+    }
+
+    function _getBpName(width) {
+      var name = false;
+      $.each(bps, function(i, val) {
+        if (val.width === width) {
+          name = val.name;
+        }
+      });
+
+      return name;
+    }
+
+    function _setRange(w) {
+      $.each(bpValues, function(i, val) {
+        var top = bpValues[i + 1] || 9999;
+        if (w > bpValues[i] && w < top) {
+          range = [bpValues[i], top];
         }
       });
     }
+
+    // Public methods
+
+    rk.breakpoints.get = function(breakpoint) {
+      return _getBpWidth(breakpoint);
+    };
+
+    rk.breakpoints.getAll = function() {
+      return bps;
+    };
+
+    rk.breakpoints.atLeast = function(breakpoint) {
+      var w = _getBpWidth(breakpoint);
+      return $win.width() >= w;
+    };
+
+    rk.breakpoints.noGreaterThan = function(breakpoint) {
+      var w = _getBpWidth(breakpoint);
+      return $win.width() <= w;
+    }
+
   })($, rk, $win);
 
+  window.rk = rk;
+
+  //===============================================
+  // Get breakpoints from SASS
+  //===============================================
+
+  (function($, rk) {
+
+    $('<meta class="rk-mq">').appendTo(document.head);
+
+    var serializedBps = $('.rk-mq').css('font-family');
+
+    if (serializedBps) {
+      var extractedBps = parseStyleToObject(serializedBps);
+
+      window.rk.breakpoints(extractedBps);
+    }
+
+    // Thank you: https://github.com/sindresorhus/query-string
+    function parseStyleToObject(str) {
+      var styleObject = {};
+
+      if (typeof str !== 'string') {
+        return styleObject;
+      }
+
+      str = str.trim().slice(1, -1); // browsers re-quote string style values
+
+      if (!str) {
+        return styleObject;
+      }
+
+      styleObject = str.split('&').reduce(function(ret, param) {
+        var parts = param.replace(/\+/g, ' ').split('=');
+        var key = parts[0];
+        var val = parts[1];
+        key = decodeURIComponent(key);
+
+        // missing `=` should be `null`:
+        // http://w3.org/TR/2012/WD-url-20120524/#collect-url-parameters
+        val = val === undefined ? null : decodeURIComponent(val);
+
+        if (!ret.hasOwnProperty(key)) {
+          ret[key] = val;
+        } else if (Array.isArray(ret[key])) {
+          ret[key].push(val);
+        } else {
+          ret[key] = [ret[key], val];
+        }
+        return ret;
+      }, {});
+
+      return styleObject;
+    }
+
+  })($, rk);
 
   //===============================================
   // Element In View
@@ -163,8 +218,8 @@
   (function($, rk){
 
     var $el, elTop, elHeight,
-        winTop, winHeight,
-        winBottom, elBottom;
+      winTop, winHeight,
+      winBottom, elBottom;
 
     rk.elementInView = function (el, isFullyVisible) {
       isFullyVisible = isFullyVisible || false;
@@ -188,6 +243,4 @@
     };
   })($, rk, $win);
 
-
-  window.rk = rk;
 }(jQuery);
