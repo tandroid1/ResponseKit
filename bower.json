@@ -1,0 +1,17 @@
+{
+  "name": "responseKit",
+  "version": "0.1.0",
+  "homepage": "https://github.com/tandroid1/ResponsiveKit",
+  "authors": [
+    "Tanner Langley <tlangley141@gmail.com>"
+  ],
+  "description": "Responsive js and sass toolkit.",
+  "license": "MIT",
+  "ignore": [
+    "**/.*",
+    "node_modules",
+    "bower_components",
+    "test",
+    "tests"
+  ]
+}
