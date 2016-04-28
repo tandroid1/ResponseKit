@@ -1,5 +1,9 @@
 # ResponseKit
 
+## Installation
+
+`bower install --save https://github.com/tandroid1/ResponseKit.git`
+
 ## Breakpoints - JavaScript
 
 ResponseKit handles breakpoints by firing an event when a breakpoint is hit. 
