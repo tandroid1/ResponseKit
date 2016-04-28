@@ -33,6 +33,281 @@ $breakpoints: (
 /// @type List
 $breakpoint-classes: (small medium large) !default;
 
+/// Removes the unit (e.g. px, em, rem) from a value, returning the number only.
+///
+/// @param {Number} $num - Number to strip unit from.
+///
+/// @returns {Number} The same number, sans unit.
+@function strip-unit($num) {
+  @return $num / ($num * 0 + 1);
+}
+
+/// Converts one or more pixel values into matching rem values.
+///
+/// @param {Number|List} $values - One or more values to convert. Be sure to separate them with spaces and not commas. If you need to convert a comma-separated list, wrap the list in parentheses.
+/// @param {Number} $base [null] - The base value to use when calculating the `rem`. If you're using Foundation out of the box, this is 16px. If this parameter is `null`, the function will reference the `$base-font-size` variable as the base.
+///
+/// @returns {List} A list of converted values.
+@function rem-calc($values, $base: null) {
+  $rem-values: ();
+  $count: length($values);
+
+  // If no base is defined, defer to the global font size
+  @if $base == null {
+    $base: $global-font-size;
+  }
+
+  // If the base font size is a %, then multiply it by 16px
+  // This is because 100% font size = 16px in most all browsers
+  @if unit($base) == '%' {
+    $base: ($base / 100%) * 16px;
+  }
+
+  @if $count == 1 {
+    @return -rk-to-rem($values, $base);
+  }
+
+  @for $i from 1 through $count {
+    $rem-values: append($rem-values, -rk-to-rem(nth($values, $i), $base));
+  }
+
+  @return $rem-values;
+}
+
+/// Converts a unitless, pixel, or rem value to em, for use in breakpoints.
+@function -rk-bp-to-em($value) {
+  // Pixel and unitless values are converted to rems
+  @if unit($value) == 'px' or unitless($value) {
+    $value: rem-calc($value, $base: 16px);
+  }
+
+  // Then the value is converted to ems
+  @return strip-unit($value) * 1em;
+}
+
+/// Converts a pixel value to matching rem value. *Any* value passed, regardless of unit, is assumed to be a pixel value. By default, the base pixel value used to calculate the rem value is taken from the `$global-font-size` variable.
+/// @access private
+///
+/// @param {Number} $value - Pixel value to convert.
+/// @param {Number} $base [null] - Base for pixel conversion.
+///
+/// @returns {Number} A number in rems, calculated based on the given value and the base pixel value. rem values are passed through as is.
+@function -rk-to-rem($value, $base: null) {
+  // Check if the value is a number
+  @if type-of($value) != 'number' {
+    @warn inspect($value) + ' was passed to rem-calc(), which is not a number.';
+    @return $value;
+  }
+
+  // Calculate rem if units for $value is not rem
+  @if unit($value) != 'rem' {
+    $value: strip-unit($value) / strip-unit($base) * 1rem;
+  }
+
+  // Turn 0rem into 0
+  @if $value == 0rem {
+    $value: 0;
+  }
+
+  @return $value;
+}
+
+/// Converts the breakpoints map to a URL-encoded string, like this: `key1=value1&key2=value2`. The value is then dropped into the CSS for a special `<meta>` tag, which is read by the Foundation JavaScript. This is how we transfer values from Sass to JavaScript, so they can be defined in one place.
+/// @access private
+///
+/// @param {Map} $map - Map to convert.
+///
+/// @returns {String} A string containing the map's contents.
+@function -rk-bp-serialize($map) {
+  $str: '';
+  @each $key, $value in $map {
+    $str: $str + $key + '=' + strip-unit($value) + '&';
+  }
+  $str: str-slice($str, 1, -2);
+
+  @return $str;
+}
+
+/// Find the next key in a map.
+/// @access private
+///
+/// @param {Map} $map - Map to traverse.
+/// @param {Mixed} $key - Key to use as a starting point.
+///
+/// @returns {Mixed} The value for the key after `$key`, if `$key` was found. If `$key` was not found, or `$key` was the last value in the map, returns `null`.
+@function -rk-map-next($map, $key) {
+  // Store the values of the map as a list, so we can access them with nth
+  $values: map-values($map);
+
+  // Ghetto for loop
+  $i: 1;
+  $found: false;
+  @each $val in map-keys($map) {
+    @if $found == false {
+      @if ($key == $val) {
+        $found: true;
+      }
+      $i: $i + 1;
+    }
+  }
+
+  // If the key doesn't exist, or it's the last key in the map, return null
+  @if $i > length($map) {
+    @return null;
+  }
+    // Otherwise, return the value
+  @else {
+    @return nth($values, $i);
+  }
+}
+
+/// Get a value for a breakpoint from a responsive config map. If the config map has the key `$value`, the exact breakpoint value is returned. If the config map does *not* have the breakpoint, the value matching the next lowest breakpoint in the config map is returned.
+/// @access private
+///
+/// @param {Map} $map - Input config map.
+/// @param {Keyword} $value - Breakpoint name to use.
+///
+/// @return {Mixed} The corresponding breakpoint value.
+@function -rk-get-bp-val($map, $value) {
+  // Check if the breakpoint name exists globally
+  @if not map-has-key($breakpoints, $value) {
+    @return null;
+  }
+    // Check if the breakpoint name exists in the local config map
+  @else if map-has-key($map, $value) {
+    // If it does, just return the value
+    @return map-get($map, $value);
+  }
+    // Otherwise, find the next lowest breakpoint and return that value
+  @else {
+    $anchor: null;
+    $found: false;
+
+    @each $key, $val in $breakpoints {
+      @if not $found {
+        @if map-has-key($map, $key) {
+          $anchor: $key;
+        }
+        @if $key == $value {
+          $found: true;
+        }
+      }
+    }
+
+    @return map-get($map, $anchor);
+  }
+}
+
+/// Remove the unit of a length
+/// @param {Number} $number - Number to remove unit from
+/// @return {Number} - Unitless number
+@function -rk-strip-unit($number) {
+  @if type-of($number) == 'number' and not unitless($number) {
+    @return $number / ($number * 0 + 1);
+  }
+
+  @return $number;
+}
+
+
+/// Converts the breakpoints map to a URL-encoded string, like this: `key1=value1&key2=value2`. The value is then dropped into the CSS for a special `<meta>` tag, which is read by the Foundation JavaScript. This is how we transfer values from Sass to JavaScript, so they can be defined in one place.
+/// @access private
+///
+/// @param {Map} $map - Map to convert.
+///
+/// @returns {String} A string containing the map's contents.
+@function -rk-bp-serialize($map) {
+  $str: '';
+  @each $key, $value in $map {
+    $str: $str + $key + '=' + -rk-strip-unit($value) + '&';
+  }
+  $str: str-slice($str, 1, -2);
+
+  @return $str;
+}
+
+/// Find the next key in a map.
+/// @access private
+///
+/// @param {Map} $map - Map to traverse.
+/// @param {Mixed} $key - Key to use as a starting point.
+///
+/// @returns {Mixed} The value for the key after `$key`, if `$key` was found. If `$key` was not found, or `$key` was the last value in the map, returns `null`.
+@function -rk-map-next($map, $key) {
+  // Store the values of the map as a list, so we can access them with nth
+  $values: map-values($map);
+
+  // Ghetto for loop
+  $i: 1;
+  $found: false;
+  @each $val in map-keys($map) {
+    @if $found == false {
+      @if ($key == $val) {
+        $found: true;
+      }
+      $i: $i + 1;
+    }
+  }
+
+  // If the key doesn't exist, or it's the last key in the map, return null
+  @if $i > length($map) {
+    @return null;
+  }
+    // Otherwise, return the value
+  @else {
+    @return nth($values, $i);
+  }
+}
+
+/// Get a value for a breakpoint from a responsive config map. If the config map has the key `$value`, the exact breakpoint value is returned. If the config map does *not* have the breakpoint, the value matching the next lowest breakpoint in the config map is returned.
+/// @access private
+///
+/// @param {Map} $map - Input config map.
+/// @param {Keyword} $value - Breakpoint name to use.
+///
+/// @return {Mixed} The corresponding breakpoint value.
+@function -rk-get-bp-val($map, $value) {
+  // Check if the breakpoint name exists globally
+  @if not map-has-key($breakpoints, $value) {
+    @return null;
+  }
+    // Check if the breakpoint name exists in the local config map
+  @else if map-has-key($map, $value) {
+    // If it does, just return the value
+    @return map-get($map, $value);
+  }
+    // Otherwise, find the next lowest breakpoint and return that value
+  @else {
+    $anchor: null;
+    $found: false;
+
+    @each $key, $val in $breakpoints {
+      @if not $found {
+        @if map-has-key($map, $key) {
+          $anchor: $key;
+        }
+        @if $key == $value {
+          $found: true;
+        }
+      }
+    }
+
+    @return map-get($map, $anchor);
+  }
+}
+
+/// Remove the unit of a length
+/// @param {Number} $number - Number to remove unit from
+/// @return {Number} - Unitless number
+@function -rk-strip-unit($number) {
+  @if type-of($number) == 'number' and not unitless($number) {
+    @return $number / ($number * 0 + 1);
+  }
+
+  @return $number;
+}
+
+
 /// Generates a media query string matching the input value. Refer to the documentation for the `breakpoint()` mixin to see what the possible inputs are.
 ///
 /// @param {Keyword|Number} $val [small] - Breakpoint name, or px, rem, or em value to process.
@@ -139,6 +414,7 @@ $breakpoint-classes: (small medium large) !default;
 @mixin breakpoint($value) {
   $str: breakpoint($value);
 
+
   // If $str is still an empty string, no media query is needed
   @if $str == '' {
     @content;
@@ -152,109 +428,12 @@ $breakpoint-classes: (small medium large) !default;
   }
 }
 
-/// Converts the breakpoints map to a URL-encoded string, like this: `key1=value1&key2=value2`. The value is then dropped into the CSS for a special `<meta>` tag, which is read by the Foundation JavaScript. This is how we transfer values from Sass to JavaScript, so they can be defined in one place.
-/// @access private
-///
-/// @param {Map} $map - Map to convert.
-///
-/// @returns {String} A string containing the map's contents.
-@function -rk-bp-serialize($map) {
-  $str: '';
-  @each $key, $value in $map {
-    $str: $str + $key + '=' + -rk-strip-unit($value) + '&';
-  }
-  $str: str-slice($str, 1, -2);
-
-  @return $str;
-}
-
-/// Find the next key in a map.
-/// @access private
-///
-/// @param {Map} $map - Map to traverse.
-/// @param {Mixed} $key - Key to use as a starting point.
-///
-/// @returns {Mixed} The value for the key after `$key`, if `$key` was found. If `$key` was not found, or `$key` was the last value in the map, returns `null`.
-@function -rk-map-next($map, $key) {
-  // Store the values of the map as a list, so we can access them with nth
-  $values: map-values($map);
-
-  // Ghetto for loop
-  $i: 1;
-  $found: false;
-  @each $val in map-keys($map) {
-    @if $found == false {
-      @if ($key == $val) {
-        $found: true;
-      }
-      $i: $i + 1;
-    }
-  }
-
-  // If the key doesn't exist, or it's the last key in the map, return null
-  @if $i > length($map) {
-    @return null;
-  }
-    // Otherwise, return the value
-  @else {
-    @return nth($values, $i);
-  }
-}
-
-/// Get a value for a breakpoint from a responsive config map. If the config map has the key `$value`, the exact breakpoint value is returned. If the config map does *not* have the breakpoint, the value matching the next lowest breakpoint in the config map is returned.
-/// @access private
-///
-/// @param {Map} $map - Input config map.
-/// @param {Keyword} $value - Breakpoint name to use.
-///
-/// @return {Mixed} The corresponding breakpoint value.
-@function -rk-get-bp-val($map, $value) {
-  // Check if the breakpoint name exists globally
-  @if not map-has-key($breakpoints, $value) {
-    @return null;
-  }
-    // Check if the breakpoint name exists in the local config map
-  @else if map-has-key($map, $value) {
-    // If it does, just return the value
-    @return map-get($map, $value);
-  }
-    // Otherwise, find the next lowest breakpoint and return that value
-  @else {
-    $anchor: null;
-    $found: false;
-
-    @each $key, $val in $breakpoints {
-      @if not $found {
-        @if map-has-key($map, $key) {
-          $anchor: $key;
-        }
-        @if $key == $value {
-          $found: true;
-        }
-      }
-    }
-
-    @return map-get($map, $anchor);
-  }
-}
-
-/// Remove the unit of a length
-/// @param {Number} $number - Number to remove unit from
-/// @return {Number} - Unitless number
-@function -rk-strip-unit($number) {
-  @if type-of($number) == 'number' and not unitless($number) {
-    @return $number / ($number * 0 + 1);
-  }
-
-  @return $number;
-}
-
 /// Light wrapper for breakpoint mixin to add no media query fallback.
 /// @param {Keyword|Number} $value - Breakpoint name, or px, rem, or em value to process.
 /// @param {boolean} $default - Determines if the styles should be used for a no media query fallback.
 @mixin bp($value, $default: false) {
 
-  @mixin breakpoint($value) {
+  @include breakpoint($value) {
     @content;
   }
 

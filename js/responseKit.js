@@ -1,7 +1,7 @@
 !function($){
   "use strict";
 
-  var rk = {};
+  window.rk = {};
   var $win = $(window);
 
   //===============================================
@@ -82,22 +82,37 @@
       var iLow = bpValues.indexOf(range[0]);
 
       iHigh = iHigh > -1 ? iHigh : bpValues.length;
+      oldBp = _getBpName(range[0]);
 
       if (keyword == 'down') {
         range[0] = bpValues[--iLow];
         range[1] = bpValues[--iHigh];
-
-        newBp = _getBpName(range[0]);
-        oldBp = _getBpName(range[1]);
       } else if (keyword == 'up') {
+        oldBp = _getBpName(range[0]);
+
         range[0] = bpValues[++iLow];
         range[1] = bpValues[++iHigh];
-
-        newBp = _getBpName(range[1]);
-        oldBp = _getBpName(range[0]);
       }
 
-      $win.trigger('changed.rk.mediaquery', [newBp, oldBp]);
+      newBp = _getBpName(range[0]);
+
+      _triggerEvents(newBp, oldBp, keyword);
+    }
+    
+    function _triggerEvents(newBp, oldBp, direction) {
+      $win.trigger('changed.rk.mediaquery', [newBp, oldBp, direction]);
+
+      if (direction === 'up') {
+        $win.trigger('up.rk.' + newBp);
+        $win.trigger('up.rk.mediaquery', [newBp, oldBp]);
+        $win.trigger('changed.rk.' + newBp, [direction]);
+      }
+
+      if (direction === 'down') {
+        $win.trigger('down.rk.down' + oldBp);
+        $win.trigger('down.rk.mediaquery', [newBp, oldBp]);
+        $win.trigger('changed.rk.' + oldBp, [direction]);
+      }
     }
 
     function _getBpWidth(name) {
@@ -132,7 +147,9 @@
       });
     }
 
+    //
     // Public methods
+    //
 
     rk.breakpoints.get = function(breakpoint) {
       return _getBpWidth(breakpoint);
@@ -140,6 +157,16 @@
 
     rk.breakpoints.getAll = function() {
       return bps;
+    };
+
+    rk.breakpoints.isBpSet = function(keyword) {
+      $.each(bps, function(i, val) {
+        if (val.name == keyword) {
+          return true;
+        }
+      });
+
+      return false;
     };
 
     rk.breakpoints.atLeast = function(breakpoint) {
@@ -154,7 +181,6 @@
 
   })($, rk, $win);
 
-  window.rk = rk;
 
   //===============================================
   // Get breakpoints from SASS
@@ -211,6 +237,7 @@
 
   })($, rk);
 
+
   //===============================================
   // Element In View
   //===============================================
@@ -242,5 +269,4 @@
       }
     };
   })($, rk, $win);
-
 }(jQuery);

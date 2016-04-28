@@ -1,27 +1,67 @@
 # ResponseKit
 
-## Breakpoints
+## Breakpoints - JavaScript
 
 ResponseKit handles breakpoints by firing an event when a breakpoint is hit. 
 
 ### Setup:
 ```javascript
 rk.breakpoints({
-  'small': 480,
-  'medium': 750,      
-  'large': 980,
+  'small': 0,
+  'medium': 640,      
+  'large': 960
 });
 ```
+
+### Events
+
+#### `changed.rk.mediaquery`
+
+Triggered every time any media query is hit sizing up or down.
+
+***Parameters***
+- newBp 
+- oldBp
+- direction
+
+#### `changed.rk.[breakpoint name]`
+
+Triggered every time the specified breakpoint is hit sizing up or down.
+
+***Parameters***
+- newBp
+
+#### `up.rk.mediaquery`
+
+Triggered every time a media query is hit sizing up.
+
+***Parameters***
+- newBp
+- oldBp
+
+#### `down.rk.mediaquery`
+
+Triggered every time a media query is hit sizing down.
+
+***Parameters***
+- newBp
+- oldBp
+
+#### `up.rk.[breakpoint name]`
+
+Triggered every time the specified breakpoint is hit sizing up.
+
+#### `down.rk.[breakpoint name]`
+
+Triggered every time the specified breakpoint is hit sizing down.
 
 ### Example 1: 
 
 Do something every time we hit the "medium" breakpoint: 
 
 ```javascript
-$(window).on('changed.rk.mediaquery', function(e, newSize, oldSize) {
-  if (newSize == 'small') {
-    // Do something...
-  }
+$(window).on('changed.rk.medium', function(e, newSize) {
+  // Do something...
 });
 ```
 
@@ -30,14 +70,14 @@ $(window).on('changed.rk.mediaquery', function(e, newSize, oldSize) {
 Do something every time we hit the "medium" breakpoint and only when resizing up:
 
 ```javascript
-$(window).on('changed.rk.mediaquery', function(e, newSize, oldSize, direction) {
-  if (newSize == 'small' && direction == 'up') {
-    // Do something...
-  }
+$(window).on('up.rk.medium', function() {
+  // Do something...
 });
 ```
 
-### SASS media query declaration
+## Breakpoints - SASS
+
+### Media query declaration
 
 This plugin borrows heavily from the Foundation 6 way of doing breakpoints in sass. Because of this, you can declare your breakpoints in sass and have them available in js. 
 
@@ -50,6 +90,14 @@ $breakpoints: (
   xlarge: 1200px,
   xxlarge: 1440px,
 );
+```
+
+### Basic Usage
+
+```scss
+@include bp(medium) {
+  // Do something...
+}
 ```
 
 ## Element In View
